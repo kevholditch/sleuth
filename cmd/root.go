@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/google/gopacket"
+	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/kevholditch/sleuth/internal/version"
 	"github.com/liamg/tml"
@@ -17,20 +18,16 @@ var rootCmd = &cobra.Command{
 	Long:  `Slueth is a commandline network interface listening tool - see https://github.com/kevholditch/slueth for more information`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf(`
+ ______   __       __  __   ______   _________  ___   ___     
+/_____/\ /_/\     /_/\/_/\ /_____/\ /________/\/__/\ /__/\    
+\::::_\/_\:\ \    \:\ \:\ \\::::_\/_\__.::.__\/\::\ \\  \ \   
+ \:\/___/\\:\ \    \:\ \:\ \\:\/___/\  \::\ \   \::\/_\ .\ \  
+  \_::._\:\\:\ \____\:\ \:\ \\::___\/_  \::\ \   \:: ___::\ \ 
+    /____\:\\:\/___/\\:\_\:\ \\:\____/\  \::\ \   \: \ \\::\ \
+    \_____\/ \_____\/ \_____\/ \_____\/   \__\/    \__\/ \::\/
 
-''''''''''',cx0XNWWWWNKOd:,''''''''
-''''''''',cONMMWXK00KNWMWXk:,''''''
-'''''''',oXMMNOo:;,,;cd0WMWKxl,''''
-''''''''lXMMXo,'''''''';xNMMM0:''''
--------,xWMWx,'''TCP'''':OMMMNo''''      %s
-''''''',xWMWx,'''''''''':OMMMNo''''      https://github.com/kevholditch/slueth
-''''''''lXMMXo,'''''''';xNMMM0:''''
-'''''''',dNMMNOo:,,,;:o0WMMKkl,''''
-''''''',l0WMMMMWXK00KNWMMNk:,''''''
-''''',lONMMNOx0XNWWWWNKOdc,''''''''
-''',lONMMNOc,',:cllllc;,'''''''''''
-::oONMMW0dc::::::::::::::::::::::::
-
+ https://github.com/kevholditch/slueth
+ %s
 
 `, version.Version)
 
@@ -55,9 +52,28 @@ func foo() error  {
 	defer handle.Close()
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
+	var ip *layers.IPv4
 	for packet := range packetSource.Packets() {
 
-		fmt.Printf("%s\n", packet.String())
+
+		for i, layer := range packet.Layers() {
+
+			switch layer.LayerType() {
+			case layers.LayerTypeIPv4:
+				ip = layer.(*layers.IPv4)
+				break
+			case layers.LayerTypeTCP: {
+					tcp := layer.(*layers.TCP)
+					fmt.Printf("%s:%d -> %s:%d %d bytes %d layers: %d\n", ip.SrcIP, tcp.SrcPort, ip.DstIP, tcp.DstPort, len(tcp.Contents), tcp.Seq, len(packet.Layers()))
+					//fmt.Printf("%s\n", packet.String())
+				}
+			}
+			if i == 3 {
+				fmt.Printf("contents: %s\n", string(layer.LayerContents()))
+			}
+
+
+		}
 	}
 
 
