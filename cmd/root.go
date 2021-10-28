@@ -99,6 +99,11 @@ func foo() error  {
 
 	for key, packets := range connections {
 		fmt.Printf("%s : %d packets\n", key, len(packets))
+		for _, packet := range packets {
+			fmt.Printf("\t %s:%d -> %s:%d ACK:%v SYN:%v FIN:%v\n",
+				packet.IPV4.SrcIP, packet.TCP.SrcPort, packet.IPV4.DstIP, packet.TCP.DstPort,
+				packet.TCP.ACK, packet.TCP.SYN, packet.TCP.FIN)
+		}
 
 	}
 
