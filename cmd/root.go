@@ -8,6 +8,7 @@ import (
 	"github.com/kevholditch/sleuth/internal/version"
 	"github.com/liamg/tml"
 	"github.com/spf13/cobra"
+	"net"
 	"os"
 	"time"
 )
@@ -36,9 +37,21 @@ var rootCmd = &cobra.Command{
 			_ = tml.Printf("<bold><red>Error:</red></bold>%s\n", err)
 			os.Exit(1)
 		}
-
-
 	},
+}
+
+type Packet struct {
+	IPV4 layers.IPv4
+	TCP layers.TCP
+}
+
+func buildKey (ip1, ip2 net.IP) string{
+	str1 := ip1.String()
+	str2 := ip2.String()
+	if str1 < str2 {
+		return fmt.Sprintf("%s<->%s", str1, str2)
+	}
+	return fmt.Sprintf("%s<->%s", str2, str1)
 }
 
 func foo() error  {
@@ -53,29 +66,41 @@ func foo() error  {
 
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
 	var ip *layers.IPv4
+	connections := map[string][]Packet{}
+	i := 0
 	for packet := range packetSource.Packets() {
-
-
-		for i, layer := range packet.Layers() {
-
+		for _, layer := range packet.Layers() {
 			switch layer.LayerType() {
 			case layers.LayerTypeIPv4:
 				ip = layer.(*layers.IPv4)
 				break
 			case layers.LayerTypeTCP: {
 					tcp := layer.(*layers.TCP)
-					fmt.Printf("%s:%d -> %s:%d %d bytes %d layers: %d\n", ip.SrcIP, tcp.SrcPort, ip.DstIP, tcp.DstPort, len(tcp.Contents), tcp.Seq, len(packet.Layers()))
-					//fmt.Printf("%s\n", packet.String())
+					p := Packet{
+						IPV4: *ip,
+						TCP:  *tcp,
+					}
+				key := buildKey(ip.SrcIP, ip.DstIP)
+				if val, ok := connections[key]; ok {
+						val = append(val, p)
+						connections[key] = val
+					}else{
+						connections[key] = []Packet{p}
+					}
 				}
 			}
-			if i == 3 {
-				fmt.Printf("contents: %s\n", string(layer.LayerContents()))
-			}
 
-
+		}
+		i++
+		if i>1000{
+			break
 		}
 	}
 
+	for key, packets := range connections {
+		fmt.Printf("%s : %d packets\n", key, len(packets))
+
+	}
 
 	return nil
 }
